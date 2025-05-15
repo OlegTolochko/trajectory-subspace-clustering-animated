@@ -14,7 +14,7 @@ Paragraph.set_default(color=BLACK)
 
 encoder_color = GREEN
 real_colors = [RED, RED, GREEN, GREEN, BLUE, BLUE]
-gray_colors = [GRAY] * 6
+gray_colors = [BLACK] * 6
 
 
 class TrajectorySubspaceClustering(MovingCameraScene):
@@ -124,7 +124,10 @@ class TrajectorySubspaceClustering(MovingCameraScene):
         
         
         self.play(
-            self.camera.frame.animate.shift(RIGHT * 9.5)
+            self.camera.frame.animate.shift(RIGHT * 9.5),
+            matrices_group.animate.shift(DOWN*0.75),
+            title.animate.shift(DOWN*0.75),
+            explanation.animate.shift(DOWN*0.75)
             , run_time=1.5
         )
 
@@ -176,7 +179,7 @@ class TrajectorySubspaceClustering(MovingCameraScene):
                 row = VGroup(temp_vectors_for_layout[i])
             vector_rows_layout.append(row)
 
-        grid_layout = VGroup(*vector_rows_layout).arrange(DOWN, buff=0.75)
+        grid_layout = VGroup(*vector_rows_layout).arrange(DOWN, buff=0.35)
         grid_layout.next_to(encoder, RIGHT, buff=1)
 
         animations = []
@@ -220,7 +223,7 @@ class TrajectorySubspaceClustering(MovingCameraScene):
             bounding_box = SurroundingRectangle(
                 vector_pair_group,
                 color=group_color,
-                buff=0.25,
+                buff=0.1,
                 corner_radius=0.1
             )
             created_mobjects.append(bounding_box)
@@ -250,9 +253,20 @@ class TrajectorySubspaceClustering(MovingCameraScene):
         
         reverse_feature_coloring = []
         for feature_vec in feature_vector_mobjects:
-            reverse_feature_coloring.append(FadeToColor(feature_vec, GRAY))
+            reverse_feature_coloring.append(FadeToColor(feature_vec, BLACK))
         
-        self.play(FadeOut(*created_mobjects), reverse_feature_coloring)
+        feature_vector_group = VGroup(*feature_vector_mobjects)
+        
+        bounding_box_all = SurroundingRectangle(
+            feature_vector_group,
+            color=BLACK,
+            buff=0.25,
+            corner_radius=0.1
+        )
+        
+        self.play(FadeOut(*created_mobjects), 
+                  reverse_feature_coloring, 
+                  Create(bounding_box_all))
 
         self.wait(2)
 
@@ -268,7 +282,7 @@ class TrajectorySubspaceClustering(MovingCameraScene):
             width=estimator_box_width, height=estimator_box_height, corner_radius=0.2,
             color=subspace_estimator_color, fill_opacity=0.1, stroke_width=2.5
         )
-        subspace_estimator_module.next_to(encoder_group, RIGHT, buff=5.75)
+        subspace_estimator_module.next_to(encoder_group, RIGHT, buff=5.45)
 
         subspace_estimator_title_text = Text("Subspace Estimator (g)", font_size=20, weight=BOLD).next_to(subspace_estimator_module, UP, buff=0.25)
 
@@ -301,13 +315,7 @@ class TrajectorySubspaceClustering(MovingCameraScene):
         
         combination_symbol = MathTex(r"\times", font_size=50, color=BLACK)
         combination_symbol.move_to(subspace_estimator_module.get_center() + RIGHT*2)
-        combination_circle = Circle(radius=0.185, color=BLACK).move_to(combination_symbol.get_center())
-
-
-        basis_B_matrix_content = [ ["B_1^{2 \\times r}"], ["\\vdots"], ["B_F^{2 \\times r}"] ]
-        subspace_basis_B_matrix = Matrix(basis_B_matrix_content, h_buff=1.0, v_buff=0.7).scale(0.45)
-        subspace_basis_B_matrix.next_to(subspace_estimator_module, RIGHT, buff=0.6).set_color(final_basis_B_color)
-        basis_B_title_text = Text("Subspace Basis B", font_size=20, weight=BOLD).next_to(subspace_basis_B_matrix, UP, buff=0.25)
+        combination_circle = Circle(radius=0.21, color=BLACK).move_to(combination_symbol.get_center())
 
         self.play(
             FadeIn(subspace_estimator_module, shift=RIGHT*0.2),
@@ -325,28 +333,30 @@ class TrajectorySubspaceClustering(MovingCameraScene):
         )
         self.wait(1)
         
-        # -----
-
+        # ----- ARROWS
+        
+        outgoing_feat_vec_pos = (bounding_box_all.get_right()[0], mlp_nn.get_left()[1], 0)
+        
         source_feature_vector_obj = feature_vector_mobjects[1] 
-        animated_f_input_copy = source_feature_vector_obj.copy().set_color(source_feature_vector_obj.get_color())
+        animated_f_input_copy = source_feature_vector_obj.copy().set_color(BLACK).move_to(outgoing_feat_vec_pos + LEFT*0.25)
         
         mlp_input_target_point = mlp_nn.get_left() + LEFT * 0.3
         
-        arrow_f_to_mlp_input = Arrow(
-            source_feature_vector_obj.get_right(), 
+        arrow_f_to_mlp_input = Line(
+            outgoing_feat_vec_pos, 
             mlp_input_target_point, 
-            buff=0.1, stroke_width=3, max_tip_length_to_length_ratio=0.15, 
-            color=source_feature_vector_obj.get_color()
-        )
+            buff=0.1, stroke_width=3,
+            color=BLACK
+        ).add_tip(tip_width=0.2, tip_length=0.2)
         
         
-        self.play(GrowArrow(arrow_f_to_mlp_input))
+        self.play(Create(arrow_f_to_mlp_input))
         self.play(
             animated_f_input_copy.animate.move_to(mlp_input_target_point).scale(0.6), 
             run_time=0.75
         )
         
-        self.play(FadeOut(arrow_f_to_mlp_input), FadeOut(animated_f_input_copy), run_time=0.3)
+        self.play(FadeOut(animated_f_input_copy), run_time=0.3)
         
         forward_pass_anim = mlp_nn.make_forward_pass_animation(
             run_time=1.5,
@@ -354,30 +364,70 @@ class TrajectorySubspaceClustering(MovingCameraScene):
         )
         self.play(forward_pass_anim)
         
+                
+        mlp_line1 = Line(start=mlp_nn.get_right() + RIGHT*0.1, end=(combination_circle.get_top()[0], mlp_nn.get_right()[1], 0), color=BLACK, stroke_width=3)
+        mlp_line2 = Line(start=(combination_circle.get_top()[0], mlp_nn.get_right()[1], 0) + UP*0.015, end=combination_circle.get_top(), color=BLACK, stroke_width=3).add_tip(tip_width=0.2, tip_length=0.2)
+        
+        self.play(Create(mlp_line1), run_time=0.3)
+        self.play(Create(mlp_line2), run_time=0.3)
+        
+        self.wait(3)
         
         
         # -- basis
         self.play(FadeIn(times_box), Write(times_text))
-        arrow_num_frames_to_basis = Arrow(
+        arrow_num_frames_to_basis = Line(
             times_box.get_right(), 
             basis_func_box_visual.get_left(), 
-            buff=0.1, stroke_width=2, max_tip_length_to_length_ratio=0.15, 
+            buff=0.1, stroke_width=3,
             color=BLACK
+        ).add_tip(tip_width=0.2, tip_length=0.2)
+        
+        self.play(Create(arrow_num_frames_to_basis))
+        
+        self.wait(1)
+        
+        cosine_formula = MathTex(r"h_{\psi}^{j}(t) = e^{-(\alpha_j (t - \mu_j))^2} \cos(\beta_j t + \gamma_j)", font_size=16, color=BLACK)   
+        
+        self.play(
+            basis_func_text_label.animate.shift(UP*0.25)
+        )
+        cosine_formula.next_to(basis_func_text_label.get_bottom(), DOWN*0.5)
+        self.play(
+            Write(cosine_formula)
         )
         
-        self.play(GrowArrow(arrow_num_frames_to_basis))
+        self.wait(4)
+
+        basis_line1 = Line(start=basis_func_box_visual.get_right() + RIGHT*0.1, end=(combination_circle.get_bottom()[0], basis_func_box_visual.get_right()[1], 0), color=BLACK, stroke_width=3)
+        basis_line2 = Line(start=(combination_circle.get_bottom()[0], basis_func_box_visual.get_right()[1], 0) + DOWN*0.015, end=combination_circle.get_bottom(), color=BLACK, stroke_width=3).add_tip(tip_width=0.2, tip_length=0.2)
         
-        mlp_output_point = mlp_nn.get_right() + RIGHT * 0.2
-        
+        self.play(Create(basis_line1), run_time=0.3)
+        self.play(Create(basis_line2), run_time=0.3)
         
         # -- subspace basis
+        self.wait(3)
+        
+        basis_B_matrix_content = [ ["B_1^{2 \\times r}"], ["\\vdots"], ["B_F^{2 \\times r}"] ]
+        subspace_basis_B_matrix = Matrix(basis_B_matrix_content, h_buff=1.0, v_buff=0.7).scale(0.45)
+        subspace_basis_B_matrix.next_to(subspace_estimator_module, RIGHT, buff=1.0).set_color(BLACK)
+        basis_B_title_text = Text("Subspace Basis B", font_size=20, weight=BOLD).next_to(subspace_basis_B_matrix, UP, buff=0.25)
+        
+        arrow_num_frames_to_basis = Line(
+            combination_circle.get_right(), 
+            subspace_basis_B_matrix.get_left(), 
+            buff=0.1, stroke_width=3,
+            color=BLACK
+        ).add_tip(tip_width=0.2, tip_length=0.2)
+        
+        
         self.play(
             Write(basis_B_title_text), 
-            FadeIn(subspace_basis_B_matrix, shift=RIGHT*0.1), 
+            FadeIn(subspace_basis_B_matrix, shift=RIGHT*0.1),
+            Create(arrow_num_frames_to_basis),
             run_time=1.0
-        )
-        self.wait(2)
-    
+        ) 
+        
 
         final_pipeline_view = VGroup(
             encoder_group, 
@@ -389,4 +439,70 @@ class TrajectorySubspaceClustering(MovingCameraScene):
         )
         final_pipeline_view = VGroup(*[m for m in final_pipeline_view if m is not None and m in self.mobjects])
 
-        self.wait(5)
+        self.wait(3)
+        
+        self.play(
+            self.camera.frame.animate.shift(RIGHT * 14)
+            , run_time=1.5
+        )
+        
+        f_reconstructed = MathTex(r"\tilde{\mathbf{f}}_{\mathrm{reconst}} = \left( \mathrm{flatten}(\mathbf{B}_i)^\top \ \mathbf{f}_i^\top \right)^\top", font_size=32, color=BLACK)
+        x_reconstructed = MathTex(r"\tilde{\mathbf{x}}_{\mathrm{reconst}} = \mathbf{B}(\mathbf{x}_j)\mathbf{B}(\mathbf{x}_j)^{\dagger} \mathbf{x}_j", font_size=32, color=BLACK)
+        
+        self.wait(2)
+        
+        f_reconstructed.move_to(subspace_basis_B_matrix.get_right() + RIGHT*8 + UP*1.5)
+        x_reconstructed.move_to(subspace_basis_B_matrix.get_right() + RIGHT*8 + DOWN*0.5)
+        
+        self.play(Write(x_reconstructed))
+        
+        self.wait(1)
+        
+        self.play(Write(f_reconstructed))
+
+        self.wait(3)
+        
+        residual_loss = MathTex(
+            r"\mathcal{L}_{\mathrm{Residual}} = \frac{1}{P} \sum_{j=1}^{P} \left\| \mathbf{x}_j - \tilde{\mathbf{x}}_j \right\|_2^2",
+            font_size=32, color=BLACK
+        )
+        
+        featdiff_loss = MathTex(
+            r"\mathcal{L}_{\mathrm{FeatDiff}} = \frac{1}{P} \sum_{j=1}^{P} \left\| f_{\theta}(\mathbf{x}_j) - f_{\theta}(\tilde{\mathbf{x}}_j) \right\|_2^2",
+            font_size=32, color=BLACK
+        )
+
+        infonce_loss = MathTex(
+            r"\mathcal{L}_{\mathrm{InfoNCE}} = - \frac{1}{|\mathcal{D}|} \sum_{(i,j,l,k) \in \mathcal{D}} "
+            r"\log \left( \frac{p_{ij}}{p_{ij} + p_{lk}} \right)",
+            font_size=32, color=BLACK
+        )
+
+        pij_def = MathTex(
+            r"p_{ij} = \exp\left( - \frac{ \left\| \mathbf{f}_i - \mathbf{f}_j \right\|_2^2 }{T} \right)",
+            font_size=32, color=BLACK
+        )
+
+        self.play(FadeOut(f_reconstructed, x_reconstructed))
+        
+        self.wait(1)
+
+        infonce_group = VGroup(infonce_loss, pij_def).arrange(DOWN, aligned_edge=RIGHT)
+
+        right_anchor = subspace_basis_B_matrix.get_right() + 9.25 * RIGHT
+
+        infonce_group.next_to(right_anchor, LEFT, aligned_edge=LEFT).shift(2.5 * UP)
+
+        residual_loss.next_to(infonce_group, DOWN, aligned_edge=LEFT, buff=0.8)
+
+        featdiff_loss.next_to(residual_loss, DOWN, aligned_edge=LEFT, buff=0.8)
+
+        self.play(Write(infonce_group))
+        self.wait(3)
+
+        self.play(Write(residual_loss))
+        self.wait(3)
+
+        self.play(Write(featdiff_loss))
+        self.wait(3)
+    
